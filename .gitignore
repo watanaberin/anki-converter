@@ -1,0 +1,4 @@
+.DS_Store__pycache__/
+src/__pycache__/*.pyc
+*.py[cod]
+*.pyc

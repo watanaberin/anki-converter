@@ -1,0 +1,19 @@
+[project]
+name = "apkg2csv"
+version = "0.1.0"
+description = "Convert .apkg Anki deck SRS file to .csv/Excel file"
+authors = [
+    {name = "rin", email = "watanabesmall@gmail.com"},
+]
+    "pandas",
+    "openpyxl",
+    "beautifulsoup4"
+]
+requires-python = ">=3.6"
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
