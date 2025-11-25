@@ -27,7 +27,7 @@ Export your Deck in Anki (for older versions, click Support older Anki versions)
 ```bash
 python src/run.py filename.apkg
 ```
-This will output `filename.apkg.csv`. HTML tags are automatically stripped from the output, and a "Note Type" column is added as the first column to identify the model of each note.
+This will output `filename.apkg.csv`. HTML tags are stripped automatically, and every field defined in your Anki models is exported alongside `Note Type` and `Card Type` so you can slice the data directly in Excel.
 
 ### Excel Output
 
@@ -39,42 +39,19 @@ python src/run.py filename.apkg -o filename.xlsx
 python src/run.py filename.apkg --format xlsx
 ```
 
-### Filtering by Note Type
-
-If your deck contains multiple Note Types, you can list them and filter the export.
-
-**List available Note Types:**
-```bash
-python src/run.py filename.apkg --list-types
-```
-
-**Filter by Note Type:**
-```bash
-python src/run.py filename.apkg --filter "Note Type Name"
-```
-
-### Filtering by Card Type
-
-You can also filter by "Card Type" (Template Name), e.g., "Card 1".
-**Note:** The export format is now one row per **Card**. If a note has multiple cards, it will appear multiple times in the output.
-
-```bash
-python src/run.py filename.apkg --card-type "Card 1"
-```
+Once the file is generated, open it in Excel (or any spreadsheet tool) to build your own filters, pivot tables, and charts. Every card is exported with every field so you can manipulate the data without running additional commands.
 
 ### Options
 
 - `input_file`: Path to the .apkg file.
 - `-o`, `--output`: Path to the output file.
 - `--format`: Output format (`csv` or `xlsx`).
-- `--filter`: Filter by Note Type (Model Name).
-- `--card-type`: Filter by Card Type (Template Name).
-- `--list-types`: List available Note Types.
+- `--media`: Extract media files and link them in the output (experimental).
 
 ## Tests
 
 ```bash
-python -m unittest tests.TestFile
+python -m unittest discover -s tests -p "Test*.py"
 ```
 
 ## Contributions

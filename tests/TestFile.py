@@ -32,7 +32,8 @@ class TestFile(unittest.TestCase):
         converter = AnkiConverter(self.test_apkg)
         conn = sqlite3.connect(self.test_db)
         try:
-            values = converter._get_values(conn)
+            header = converter._get_header(conn)
+            values = converter._get_values(conn, header_fields=header[2:])
             # Assuming 'Card 1' is the default template name if not specified otherwise
             # We need to be careful here. Let's see what the actual values are by running tests.
             # For now, I'll assume 'Card 1' and update if it fails.

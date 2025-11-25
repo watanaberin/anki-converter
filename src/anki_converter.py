@@ -4,7 +4,7 @@ import csv
 import os
 import tempfile
 from zipfile import ZipFile
-from typing import List, Optional, Dict
+from typing import List, Dict
 import pandas as pd
 
 from bs4 import BeautifulSoup
@@ -73,26 +73,23 @@ class AnkiConverter:
             if db_path and os.path.exists(db_path):
                 os.remove(db_path)
 
-    def _get_header(self, conn: sqlite3.Connection, mid: Optional[int] = None) -> List[str]:
+    def _get_header(self, conn: sqlite3.Connection) -> List[str]:
         """Retrieves the header columns from the database."""
         try:
             models = self._get_models(conn)
             if not models:
                 raise ValueError("No models found in collection")
             
-            model = None
-            if mid:
-                model = models.get(mid)
-                if not model:
-                     raise ValueError(f"Model with ID {mid} not found")
-            else:
-                # Default to first model if no mid specified
-                # Note: dict order is preserved in Python 3.7+
-                first_mid = list(models.keys())[0]
-                model = models[first_mid]
-            
-            fields = [field['name'] for field in model['flds']]
-            return ["Note Type", "Card Type"] + fields
+            field_names: List[str] = []
+            seen = set()
+            for model in models.values():
+                for field in model.get('flds', []):
+                    name = field['name']
+                    if name not in seen:
+                        seen.add(name)
+                        field_names.append(name)
+
+            return ["Note Type", "Card Type"] + field_names
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve header: {e}")
 
@@ -148,7 +145,7 @@ class AnkiConverter:
             
         return re.sub(r'\[sound:(.*?)\]', replace_sound, text)
 
-    def _get_values(self, conn: sqlite3.Connection, mid: Optional[int] = None, card_type: str = None, media_map: Dict[str, str] = None, is_excel: bool = False) -> List[List[str]]:
+    def _get_values(self, conn: sqlite3.Connection, header_fields: List[str], media_map: Dict[str, str] = None, is_excel: bool = False) -> List[List[str]]:
         """Retrieves the note values from the database, one row per card."""
         try:
             models = self._get_models(conn)
@@ -159,13 +156,8 @@ class AnkiConverter:
                 FROM notes n
                 JOIN cards c ON n.id = c.nid
             """
-            params = []
             
-            if mid:
-                query += " WHERE n.mid = ?"
-                params.append(mid)
-            
-            cur.execute(query, tuple(params))
+            cur.execute(query)
             rows = cur.fetchall()
             
             cleaned_rows = []
@@ -184,49 +176,37 @@ class AnkiConverter:
                 else:
                     card_type_name = f"Card {card_ord + 1}"
                 
-                # Filter by card type if specified
-                if card_type and card_type != card_type_name:
-                    continue
-                
-                cleaned_fields = []
-                for field in fields:
-                    # First process media tags if needed
+                field_map = {}
+                for idx, field_def in enumerate(model.get('flds', [])):
+                    field_name = field_def['name']
+                    raw_value = fields[idx] if idx < len(fields) else ""
                     if media_map:
-                        field = self._process_media_tags(field, media_map, is_excel)
-                    # Then clean HTML
-                    cleaned_fields.append(self._clean_html(field))
-                    
-                cleaned_rows.append([model_name, card_type_name] + cleaned_fields)
+                        raw_value = self._process_media_tags(raw_value, media_map, is_excel)
+                    field_map[field_name] = self._clean_html(raw_value)
+
+                ordered_fields = [field_map.get(name, "") for name in header_fields]
+                cleaned_rows.append([model_name, card_type_name] + ordered_fields)
             return cleaned_rows
         except Exception as e:
             raise RuntimeError(f"Failed to retrieve values: {e}")
 
-    def convert(self, output_path: str, model_name: str = None, card_type: str = None, export_media: bool = False):
+    def convert(self, output_path: str, export_media: bool = False):
         """Converts the apkg file to a CSV or Excel file based on extension."""
         db_path = None
         conn = None
         try:
             db_path = self._extract_db()
             conn = self._get_connection(db_path)
-            
-            mid = None
-            if model_name:
-                models = self._get_models(conn)
-                for m_id, model in models.items():
-                    if model['name'] == model_name:
-                        mid = m_id
-                        break
-                if mid is None:
-                    raise ValueError(f"Model '{model_name}' not found")
 
             media_map = {}
             if export_media:
                 output_dir = os.path.dirname(os.path.abspath(output_path))
-                media_map = self._extract_media(output_dir)
+                print("Do not support media extraction yet")
+                # media_map = self._extract_media(output_dir)
 
-            header = self._get_header(conn, mid)
+            header = self._get_header(conn)
             is_excel = output_path.lower().endswith('.xlsx')
-            values = self._get_values(conn, mid, card_type, media_map, is_excel)
+            values = self._get_values(conn, header_fields=header[2:], media_map=media_map, is_excel=is_excel)
             
             df = pd.DataFrame(values, columns=header)
             
